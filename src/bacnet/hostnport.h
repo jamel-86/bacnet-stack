@@ -61,11 +61,16 @@ typedef struct BACnetHostNPort_Minimal {
     uint16_t port;
 } BACNET_HOST_N_PORT_MINIMAL;
 
-/* Structure to hold the host IP address and hostname for lookup */
+/* Structure to hold the host IP address and hostname for lookup.
+ * Skipped under C++ because the inner structs are union-scoped (nested types
+ * in C++) and forward-referencing them at file scope here is not valid C++.
+ * The typedef is unused outside hostnport.h — see vendor patch note. */
+#ifndef __cplusplus
 typedef struct BACnetHostAddressPair {
     struct BACnetHostOctetString ip_address;
     struct BACnetHostCharacterString name;
 } BACNET_HOST_ADDRESS_PAIR;
+#endif
 
 /**
  *  BACnetBDTEntry ::= SEQUENCE {

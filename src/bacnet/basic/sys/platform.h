@@ -84,8 +84,11 @@ __inline int c99_snprintf(char *outBuf, size_t size, const char *format, ...)
 #endif
 #endif
 
-/* some common min/max as defined in windef.h */
-#ifndef NOMINMAX
+/* some common min/max as defined in windef.h.
+ * Vendor patch: skip under C++ — the macros collide with std::min / std::max
+ * once bacnet headers are pulled in from C++ TUs. C TUs in bacnet-stack
+ * still rely on these macros (e.g. bacaddr.c). */
+#if !defined(NOMINMAX) && !defined(__cplusplus)
 #ifndef max
 #define max(a, b) (((a) > (b)) ? (a) : (b))
 #endif
