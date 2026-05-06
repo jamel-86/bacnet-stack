@@ -11,6 +11,12 @@
 #include <ETH.h>
 #endif
 
+// pcap_capture hook: wires every BACnet/IP send into the gateway's
+// pcap stream. The dashboard's KNX capture already covers RX (via
+// bacnet_client.cpp's poll()), so we only need to instrument TX here.
+// `pcap_capture.h` resolves via the project's `-Isrc` build flag.
+#include "pcap_capture.h"
+
 extern "C" {
 #include "bip.h"
 }
@@ -101,6 +107,17 @@ extern "C" int bip_socket_send(
         return -1;
     }
 
+    // Mirror the frame to pcap (no-op when capture inactive). bip_get_port()
+    // is the BACnet/IP local port — same one bip_socket_init() bound. The
+    // BVLC/NPDU bytes (`mtu`) are the full BACnet/IP wire frame, so
+    // Wireshark's BVLC dissector decodes the capture cleanly without us
+    // having to fake any envelope.
+    pcap_capture::capture_udp(
+        pcap_capture::Direction::Tx,
+        network_local_ip(), bip_get_port(),
+        ip, dest_port,
+        mtu, mtu_len);
+
     return (written == mtu_len) ? (int)written : -1;
 }
 
@@ -137,6 +154,17 @@ extern "C" int bip_socket_receive(
     }
 
     int len = BipUdp.read(buf, to_read);
+    if (len > 0) {
+        // Mirror the BVLC+NPDU frame to pcap before bip_receive() strips
+        // the BVLC header. Wireshark's BVLC dissector needs the leading
+        // 0x81 type byte to decode correctly.
+        IPAddress src(src_addr[0], src_addr[1], src_addr[2], src_addr[3]);
+        pcap_capture::capture_udp(
+            pcap_capture::Direction::Rx,
+            src, *src_port,
+            network_local_ip(), bip_get_port(),
+            buf, (size_t)len);
+    }
     return (len > 0) ? len : 0;
 }
 
